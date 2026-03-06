@@ -1,0 +1,22 @@
+import { Module } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { UsersModule } from '../users/users.module';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { MailModule } from '../mail/mail.module';
+import { GoogleStrategy } from './strategies/google.strategy';
+
+@Module({
+  imports: [
+    UsersModule,
+    PassportModule,
+    JwtModule.register({}),
+    MailModule,
+  ],
+  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  controllers: [AuthController],
+  exports: [AuthService, JwtStrategy, PassportModule],
+})
+export class AuthModule { }
