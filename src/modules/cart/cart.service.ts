@@ -30,8 +30,18 @@ export class CartService {
         cart.items.forEach((item: any) => {
             if (item.product && item.product.price !== undefined) {
                 const product = item.product as any;
+                let basePrice = product.price;
+
+                // Use variant price if SKU matches
+                if (item.variantSku && product.variants?.length > 0) {
+                    const variant = product.variants.find((v: any) => v.sku === item.variantSku);
+                    if (variant) {
+                        basePrice = variant.price;
+                    }
+                }
+
                 const discountPercent = product.discountPercent || 0;
-                const effectivePrice = Math.round(product.price * (1 - discountPercent / 100));
+                const effectivePrice = Math.round(basePrice * (1 - discountPercent / 100));
 
                 subtotal += effectivePrice * item.quantity;
                 validItems.push(item);
@@ -64,18 +74,35 @@ export class CartService {
         }
 
         const exactProductId = new Types.ObjectId(dto.productId);
-        const existingItemIndex = cart.items.findIndex(item => item.product.toString() === exactProductId.toString());
+        const existingItemIndex = cart.items.findIndex(item =>
+            item.product.toString() === exactProductId.toString() &&
+            item.variantSku === dto.variantSku
+        );
 
         if (existingItemIndex > -1) {
             // Update quantity of existing item
             const newQuantity = cart.items[existingItemIndex].quantity + dto.quantity;
-            if (product.stock < newQuantity) {
-                throw new BadRequestException(`Cannot add: stock limits exceeded. You already have ${cart.items[existingItemIndex].quantity} in cart.`);
+
+            // Validate stock for variant if applicable
+            let availableStock = product.stock;
+            if (dto.variantSku && product.variants?.length > 0) {
+                const variant = product.variants.find(v => v.sku === dto.variantSku);
+                if (variant) availableStock = variant.stock;
+            }
+
+            if (availableStock < newQuantity) {
+                throw new BadRequestException(`Only ${availableStock} items left in stock.`);
             }
             cart.items[existingItemIndex].quantity = newQuantity;
         } else {
             // Add new item
-            cart.items.push({ product: exactProductId, quantity: dto.quantity } as any);
+            cart.items.push({
+                product: exactProductId,
+                quantity: dto.quantity,
+                variantSku: dto.variantSku,
+                size: dto.size,
+                color: dto.color
+            } as any);
         }
 
         await cart.save();
@@ -84,7 +111,7 @@ export class CartService {
 
     async updateQuantity(userId: string, productId: string, dto: UpdateCartItemDto) {
         if (dto.quantity === 0) {
-            return this.removeFromCart(userId, productId);
+            return this.removeFromCart(userId, productId, dto.variantSku);
         }
 
         const product = await this.productsService.findOne(productId);
@@ -101,7 +128,10 @@ export class CartService {
             throw new NotFoundException('Cart not found');
         }
 
-        const existingItemIndex = cart.items.findIndex(item => item.product.toString() === productId);
+        const existingItemIndex = cart.items.findIndex(item =>
+            item.product.toString() === productId &&
+            item.variantSku === dto.variantSku
+        );
         if (existingItemIndex > -1) {
             cart.items[existingItemIndex].quantity = dto.quantity;
             await cart.save();
@@ -110,13 +140,15 @@ export class CartService {
         return this.getCart(userId);
     }
 
-    async removeFromCart(userId: string, productId: string) {
+    async removeFromCart(userId: string, productId: string, variantSku?: string) {
         const cart = await this.cartModel.findOne({ user: new Types.ObjectId(userId) }).exec();
         if (!cart) {
             throw new NotFoundException('Cart not found');
         }
 
-        cart.items = cart.items.filter(item => item.product.toString() !== productId) as any;
+        cart.items = cart.items.filter(item =>
+            !(item.product.toString() === productId && item.variantSku === variantSku)
+        ) as any;
         await cart.save();
 
         return this.getCart(userId);

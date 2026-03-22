@@ -12,6 +12,15 @@ export class CartItem {
 
     @Prop({ required: true, min: 1 })
     quantity: number;
+
+    @Prop({ required: false })
+    variantSku?: string;
+
+    @Prop({ required: false })
+    size?: string;
+
+    @Prop({ required: false })
+    color?: string;
 }
 
 export const CartItemSchema = SchemaFactory.createForClass(CartItem);

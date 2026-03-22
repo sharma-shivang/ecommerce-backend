@@ -32,10 +32,15 @@ async function bootstrap() {
   // Enable global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Enable CORS
-  app.enableCors();
-
   const configService = app.get(ConfigService);
+  const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3001');
+
+  // Enable CORS
+  app.enableCors({
+    origin: [frontendUrl, 'http://localhost:3001'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
   const port = configService.get<number>('PORT', 3000);
 
   const usersService = app.get(UsersService);

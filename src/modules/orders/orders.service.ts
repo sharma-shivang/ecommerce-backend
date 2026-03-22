@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { InjectModel, InjectConnection } from '@nestjs/mongoose';
-import { Model, Types, PipelineStage, Connection } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types, PipelineStage } from 'mongoose';
 import { Order, OrderDocument } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { AdminOrdersQueryDto, SortBy, SortOrder } from './dto/admin-orders-query.dto';
@@ -15,7 +15,6 @@ const CANCELLABLE_STATUSES = ['pending', 'confirmed'];
 export class OrdersService {
     constructor(
         @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
-        @InjectConnection() private readonly connection: Connection,
         private cartService: CartService,
         private productsService: ProductsService,
         private couponsService: CouponsService,
@@ -312,56 +311,41 @@ export class OrdersService {
     }
 
     async cancelOrder(orderId: string, user: any) {
-        const session = await this.connection.startSession();
-        session.startTransaction();
+        const order = await this.orderModel.findById(orderId);
 
-        try {
-            const order = await this.orderModel.findById(orderId).session(session);
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
 
-            if (!order) {
-                throw new NotFoundException('Order not found');
-            }
+        // Verify ownership: regular users can only cancel their own orders
+        if (user.role !== 'admin' && order.user.toString() !== user.userId) {
+            throw new ForbiddenException('You do not have permission to cancel this order');
+        }
 
-            // Verify ownership: User can only cancel their own; Admin can cancel any
-            if (user.role !== 'admin' && order.user.toString() !== user.userId) {
-                throw new ForbiddenException('You do not have permission to cancel this order');
-            }
+        // Validate status: only allow cancellation if pending or confirmed
+        if (!CANCELLABLE_STATUSES.includes(order.status)) {
+            throw new BadRequestException(`Order cannot be cancelled. Current status: ${order.status}`);
+        }
 
-            // Validate status: Only allow if "Pending" or "Confirmed"
-            if (!CANCELLABLE_STATUSES.includes(order.status)) {
-                throw new BadRequestException(`Order cannot be cancelled. Current status: ${order.status}`);
-            }
+        // Update status to cancelled
+        order.status = 'cancelled';
+        await order.save();
 
-            // Update status to "Cancelled"
-            order.status = 'cancelled';
-            await order.save({ session });
-
-            // Restore stock
-            for (const item of order.items) {
+        // Restore stock for each item
+        for (const item of order.items) {
+            try {
                 await this.productsService.updateStock(
                     item.product.toString(),
                     item.quantity,
-                    session as any
                 );
+            } catch (err) {
+                console.error(`Failed to restore stock for product ${item.product}:`, err);
             }
-
-            // Placeholder refund logic
-            // In a real app, check if payment was successful (e.g., order.paymentStatus === 'paid')
-            await this.triggerRefundPlaceholder(order);
-
-            await session.commitTransaction();
-            return order;
-        } catch (error) {
-            await session.abortTransaction();
-            throw error;
-        } finally {
-            session.endSession();
         }
-    }
 
-    private async triggerRefundPlaceholder(order: OrderDocument) {
-        // TODO: Integrate with Stripe/PayPal refund API
-        console.log(`[REFUND] Triggering refund for order ${order._id} of amount ${order.total}`);
+        console.log(`[REFUND] Placeholder: trigger refund for order ${order._id} of amount ${order.total}`);
+
+        return order;
     }
 }
 

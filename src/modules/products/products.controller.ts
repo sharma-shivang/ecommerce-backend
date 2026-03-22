@@ -7,6 +7,7 @@ import {
     Param,
     Delete,
     Query,
+    Put,
     UseGuards,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
@@ -73,6 +74,16 @@ export class ProductsController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN)
     update(
+        @Param('id') id: string,
+        @Body() updateProductDto: UpdateProductDto,
+    ) {
+        return this.productsService.update(id, updateProductDto);
+    }
+
+    @Put(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    updatePut(
         @Param('id') id: string,
         @Body() updateProductDto: UpdateProductDto,
     ) {

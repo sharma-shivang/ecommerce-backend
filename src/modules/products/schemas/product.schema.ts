@@ -3,6 +3,29 @@ import { Document, Types } from 'mongoose';
 
 export type ProductDocument = Product & Document;
 
+@Schema({ _id: false })
+export class ProductVariant {
+    @Prop({ required: true })
+    size: string;
+
+    @Prop({ required: true })
+    color: string;
+
+    @Prop({ required: true })
+    price: number;
+
+    @Prop({ required: true, min: 0 })
+    stock: number;
+
+    @Prop({ required: true, unique: true, sparse: true })
+    sku: string;
+
+    @Prop({ type: [String], default: [] })
+    images: string[];
+}
+
+const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
+
 @Schema({ timestamps: true })
 export class Product {
     @Prop({ required: true, index: true })
@@ -31,6 +54,9 @@ export class Product {
 
     @Prop({ default: false, index: true })
     isFeatured: boolean;
+
+    @Prop({ type: [ProductVariantSchema], default: [] })
+    variants: ProductVariant[];
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

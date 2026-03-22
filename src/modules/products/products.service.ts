@@ -13,6 +13,9 @@ export class ProductsService {
     ) { }
 
     async create(createProductDto: CreateProductDto): Promise<Product> {
+        if (createProductDto.variants) {
+            await this.validateVariants(createProductDto.variants);
+        }
         const createdProduct = new this.productModel(createProductDto);
         return createdProduct.save();
     }
@@ -59,6 +62,9 @@ export class ProductsService {
     }
 
     async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
+        if (updateProductDto.variants) {
+            await this.validateVariants(updateProductDto.variants, id);
+        }
         const updatedProduct = await this.productModel
             .findByIdAndUpdate(id, updateProductDto, { new: true })
             .exec();
@@ -126,5 +132,32 @@ export class ProductsService {
             .sort({ rating: -1, createdAt: -1 })
             .limit(limit)
             .exec();
+    }
+
+    private async validateVariants(variants: any[], excludeProductId?: string) {
+        const skus = variants.map(v => v.sku);
+        const uniqueSkus = new Set(skus);
+        if (skus.length !== uniqueSkus.size) {
+            throw new NotFoundException('Duplicate SKUs found in variants list');
+        }
+
+        // Check for duplicate size + color combinations
+        const combinations = variants.map(v => `${v.size}-${v.color}`);
+        const uniqueCombinations = new Set(combinations);
+        if (combinations.length !== uniqueCombinations.size) {
+            throw new NotFoundException('Duplicate size and color combinations found in variants list');
+        }
+
+        // Check if any SKU already exists in another product
+        for (const sku of skus) {
+            const query: any = { 'variants.sku': sku };
+            if (excludeProductId) {
+                query._id = { $ne: new Types.ObjectId(excludeProductId) };
+            }
+            const existing = await this.productModel.findOne(query).exec();
+            if (existing) {
+                throw new NotFoundException(`SKU ${sku} already exists in another product`);
+            }
+        }
     }
 }

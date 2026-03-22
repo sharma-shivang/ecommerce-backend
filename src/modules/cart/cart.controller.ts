@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Query } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
@@ -32,8 +32,12 @@ export class CartController {
     }
 
     @Delete('remove/:productId')
-    removeFromCart(@Request() req: any, @Param('productId') productId: string) {
-        return this.cartService.removeFromCart(req.user.userId, productId);
+    removeFromCart(
+        @Request() req: any,
+        @Param('productId') productId: string,
+        @Query('variantSku') variantSku?: string
+    ) {
+        return this.cartService.removeFromCart(req.user.userId, productId, variantSku);
     }
 
     @Patch('save-for-later/:productId')

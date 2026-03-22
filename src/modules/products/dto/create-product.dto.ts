@@ -1,5 +1,35 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsArray, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsArray, Min, Max, IsUrl, ArrayMaxSize, ValidateNested, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class VariantDto {
+    @IsString()
+    @IsNotEmpty()
+    @IsIn(['XS', 'S', 'M', 'L', 'XL', 'Free Size'])
+    size: string;
+
+    @IsString()
+    @IsNotEmpty()
+    color: string;
+
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    price: number;
+
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    stock: number;
+
+    @IsString()
+    @IsNotEmpty()
+    sku: string;
+
+    @IsArray()
+    @IsUrl({}, { each: true })
+    @IsOptional()
+    images?: string[];
+}
 
 export class CreateProductDto {
     @IsString()
@@ -16,7 +46,8 @@ export class CreateProductDto {
     price: number;
 
     @IsArray()
-    @IsString({ each: true })
+    @IsUrl({}, { each: true })
+    @ArrayMaxSize(8)
     @IsOptional()
     images?: string[];
 
@@ -46,4 +77,10 @@ export class CreateProductDto {
 
     @IsOptional()
     isFeatured?: boolean;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => VariantDto)
+    @IsOptional()
+    variants?: VariantDto[];
 }
