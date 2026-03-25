@@ -35,9 +35,22 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3001');
 
+  // Format origins to include both root and www variants
+  const origins = [frontendUrl, 'http://localhost:3001'];
+  if (frontendUrl && frontendUrl.includes('://') && !frontendUrl.includes('localhost')) {
+    const url = new URL(frontendUrl);
+    const host = url.hostname;
+    const protocol = url.protocol;
+    if (host.startsWith('www.')) {
+      origins.push(`${protocol}//${host.replace('www.', '')}`);
+    } else {
+      origins.push(`${protocol}//www.${host}`);
+    }
+  }
+
   // Enable CORS
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:3001'],
+    origin: origins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

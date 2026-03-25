@@ -149,6 +149,9 @@ export class CartService {
         cart.items = cart.items.filter(item =>
             !(item.product.toString() === productId && item.variantSku === variantSku)
         ) as any;
+        cart.savedForLater = cart.savedForLater.filter(item =>
+            !(item.product.toString() === productId && item.variantSku === variantSku)
+        ) as any;
         await cart.save();
 
         return this.getCart(userId);
@@ -163,11 +166,13 @@ export class CartService {
         return cart;
     }
 
-    async saveForLater(userId: string, productId: string) {
+    async saveForLater(userId: string, productId: string, variantSku?: string) {
         const cart = await this.cartModel.findOne({ user: new Types.ObjectId(userId) }).exec();
         if (!cart) throw new NotFoundException('Cart not found');
 
-        const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
+        const itemIndex = cart.items.findIndex(item =>
+            item.product.toString() === productId && item.variantSku === variantSku
+        );
         if (itemIndex === -1) throw new NotFoundException('Item not found in cart');
 
         const item = cart.items[itemIndex];
@@ -176,7 +181,9 @@ export class CartService {
         cart.items.splice(itemIndex, 1);
 
         // Add to savedForLater if not already there
-        const alreadySaved = cart.savedForLater.some(i => i.product.toString() === productId);
+        const alreadySaved = cart.savedForLater.some(i =>
+            i.product.toString() === productId && i.variantSku === variantSku
+        );
         if (!alreadySaved) {
             cart.savedForLater.push(item);
         }
@@ -185,11 +192,13 @@ export class CartService {
         return this.getCart(userId);
     }
 
-    async moveToCart(userId: string, productId: string) {
+    async moveToCart(userId: string, productId: string, variantSku?: string) {
         const cart = await this.cartModel.findOne({ user: new Types.ObjectId(userId) }).exec();
         if (!cart) throw new NotFoundException('Cart not found');
 
-        const savedIndex = cart.savedForLater.findIndex(item => item.product.toString() === productId);
+        const savedIndex = cart.savedForLater.findIndex(item =>
+            item.product.toString() === productId && item.variantSku === variantSku
+        );
         if (savedIndex === -1) throw new NotFoundException('Item not found in saved list');
 
         const item = cart.savedForLater[savedIndex];
@@ -204,7 +213,9 @@ export class CartService {
         cart.savedForLater.splice(savedIndex, 1);
 
         // Add to items
-        const existingItemIndex = cart.items.findIndex(i => i.product.toString() === productId);
+        const existingItemIndex = cart.items.findIndex(i =>
+            i.product.toString() === productId && i.variantSku === variantSku
+        );
         if (existingItemIndex > -1) {
             cart.items[existingItemIndex].quantity += item.quantity;
         } else {

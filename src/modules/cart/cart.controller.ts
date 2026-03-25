@@ -41,12 +41,20 @@ export class CartController {
     }
 
     @Patch('save-for-later/:productId')
-    saveForLater(@Request() req: any, @Param('productId') productId: string) {
-        return this.cartService.saveForLater(req.user.userId, productId);
+    saveForLater(
+        @Request() req: any,
+        @Param('productId') productId: string,
+        @Query('variantSku') variantSku?: string
+    ) {
+        return this.cartService.saveForLater(req.user.userId, productId, variantSku);
     }
 
     @Patch('move-to-cart/:productId')
-    moveToCart(@Request() req: any, @Param('productId') productId: string) {
-        return this.cartService.moveToCart(req.user.userId, productId);
+    moveToCart(
+        @Request() req: any,
+        @Param('productId') productId: string,
+        @Query('variantSku') variantSku?: string
+    ) {
+        return this.cartService.moveToCart(req.user.userId, productId, variantSku);
     }
 }
